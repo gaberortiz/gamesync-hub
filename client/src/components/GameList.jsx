@@ -13,7 +13,10 @@ import {
   CheckCircle,
   XCircle,
   Plus,
-  Settings
+  Settings,
+  Navigation,
+  Sparkles,
+  Share2
 } from 'lucide-react';
 
 export default function GameList({
@@ -28,7 +31,7 @@ export default function GameList({
   isAdmin,
   onOpenLogin
 }) {
-  const [filter, setFilter] = useState('upcoming'); // 'upcoming', 'all', 'past'
+  const [filter, setFilter] = useState('upcoming'); // 'upcoming', 'past', 'all'
   const [search, setSearch] = useState('');
 
   // Format date helper: "2026-10-10" -> { month: "OCT", day: "10", weekday: "Sat", full: "Saturday, Oct 10, 2026" }
@@ -66,36 +69,77 @@ export default function GameList({
     return `${hour}:${String(arrM).padStart(2, '0')} ${ampm}`;
   }
 
+  // Relative day label (e.g. "Today", "Tomorrow", "In 3 days", "Past")
+  function getRelativeDayLabel(dateStr) {
+    if (!dateStr) return '';
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const [y, m, d] = dateStr.split('-').map(Number);
+    const target = new Date(y, m - 1, d);
+    target.setHours(0, 0, 0, 0);
+
+    const diffDays = Math.round((target - today) / (1000 * 60 * 60 * 24));
+    if (diffDays === 0) return '🔥 Today';
+    if (diffDays === 1) return '⚡ Tomorrow';
+    if (diffDays > 1 && diffDays <= 7) return `📅 In ${diffDays} days`;
+    if (diffDays < 0) return 'Completed';
+    return target.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+  }
+
   const todayStr = new Date().toISOString().split('T')[0];
 
-  const filteredGames = games.filter((g) => {
-    // Search match
-    if (search.trim()) {
-      const q = search.toLowerCase();
-      const match =
-        g.opponent?.toLowerCase().includes(q) ||
-        g.venue_name?.toLowerCase().includes(q) ||
-        g.field_court?.toLowerCase().includes(q) ||
-        g.team_name?.toLowerCase().includes(q) ||
-        g.uniform_notes?.toLowerCase().includes(q);
-      if (!match) return false;
-    }
-
-    if (filter === 'upcoming') {
-      return g.game_date >= todayStr && g.status !== 'Completed';
-    }
-    if (filter === 'past') {
-      return g.game_date < todayStr || g.status === 'Completed';
-    }
-    return true; // all
+  // 1. Filter by search query
+  const searchedGames = games.filter((g) => {
+    if (!search.trim()) return true;
+    const q = search.toLowerCase();
+    return (
+      g.opponent?.toLowerCase().includes(q) ||
+      g.venue_name?.toLowerCase().includes(q) ||
+      g.field_court?.toLowerCase().includes(q) ||
+      g.team_name?.toLowerCase().includes(q) ||
+      g.uniform_notes?.toLowerCase().includes(q)
+    );
   });
+
+  // 2. Separate and sort by recency
+  // Upcoming games: Sorted closest/earliest first
+  const upcomingGames = searchedGames
+    .filter((g) => g.game_date >= todayStr && g.status !== 'Completed')
+    .sort((a, b) => {
+      if (a.game_date !== b.game_date) return a.game_date.localeCompare(b.game_date);
+      return (a.start_time || '').localeCompare(b.start_time || '');
+    });
+
+  // Past games: Sorted most recent first (descending)
+  const pastGames = searchedGames
+    .filter((g) => g.game_date < todayStr || g.status === 'Completed')
+    .sort((a, b) => {
+      if (a.game_date !== b.game_date) return b.game_date.localeCompare(a.game_date);
+      return (b.start_time || '').localeCompare(a.start_time || '');
+    });
+
+  // All games: Chronological
+  const allSortedGames = [...searchedGames].sort((a, b) => {
+    if (a.game_date !== b.game_date) return a.game_date.localeCompare(b.game_date);
+    return (a.start_time || '').localeCompare(b.start_time || '');
+  });
+
+  const nextGame = upcomingGames.length > 0 ? upcomingGames[0] : null;
+
+  const filteredGames =
+    filter === 'upcoming'
+      ? upcomingGames
+      : filter === 'past'
+      ? pastGames
+      : allSortedGames;
 
   return (
     <div className="space-y-6">
       {/* Team Context Banner if a team is selected */}
       {selectedTeam ? (
         <div
-          className="rounded-2xl p-5 text-white shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4"
+          className="rounded-3xl p-5 sm:p-6 text-white shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4 transition-all"
           style={{ backgroundColor: selectedTeam.color || '#2563eb' }}
         >
           <div>
@@ -109,7 +153,7 @@ export default function GameList({
                 </span>
               )}
             </div>
-            <h2 className="text-2xl font-black mt-1 tracking-tight">{selectedTeam.name}</h2>
+            <h2 className="text-2xl sm:text-3xl font-black mt-1.5 tracking-tight">{selectedTeam.name}</h2>
             <div className="text-sm opacity-90 mt-1 flex flex-wrap gap-x-4 gap-y-1">
               {selectedTeam.child_name && (
                 <span>Player: <strong className="font-semibold">{selectedTeam.child_name}</strong></span>
@@ -131,84 +175,203 @@ export default function GameList({
             )}
             <button
               onClick={onOpenShare}
-              className="px-4 py-2 rounded-xl bg-white text-slate-900 text-sm font-bold shadow-md hover:bg-slate-100 transition active:scale-95"
+              className="px-4 py-2 rounded-xl bg-white text-slate-900 text-xs sm:text-sm font-bold shadow-md hover:bg-slate-100 transition active:scale-95 flex items-center space-x-1.5"
             >
-              Sync Calendar
+              <Share2 className="w-4 h-4 text-blue-600" />
+              <span>Sync to Phone</span>
             </button>
           </div>
         </div>
       ) : (
-        <div className="bg-gradient-to-r from-blue-700 via-indigo-700 to-purple-800 rounded-2xl p-5 text-white shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div className="bg-gradient-to-r from-blue-700 via-indigo-700 to-purple-800 rounded-3xl p-5 sm:p-6 text-white shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div>
             <span className="text-xs font-bold uppercase tracking-wider bg-white/20 px-2.5 py-0.5 rounded-full">
               Family Master Calendar
             </span>
-            <h2 className="text-2xl font-black mt-1 tracking-tight">All Family Sports Schedules</h2>
+            <h2 className="text-2xl sm:text-3xl font-black mt-1.5 tracking-tight">All Family Sports Schedules</h2>
             <p className="text-sm text-blue-100 mt-1">
-              All games across every child and team synchronized into one master calendar feed.
+              All games across every child and team synchronized into one master live schedule.
             </p>
           </div>
           <button
             onClick={onOpenShare}
-            className="px-4 py-2 rounded-xl bg-white text-slate-900 text-sm font-bold shadow-md hover:bg-slate-100 transition active:scale-95 whitespace-nowrap"
+            className="px-4 py-2.5 rounded-xl bg-white text-slate-900 text-xs sm:text-sm font-bold shadow-md hover:bg-slate-100 transition active:scale-95 whitespace-nowrap flex items-center space-x-1.5 self-start md:self-auto"
           >
-            Get Master Calendar Link
+            <Share2 className="w-4 h-4 text-blue-600" />
+            <span>Sync Master Calendar</span>
           </button>
         </div>
       )}
 
+      {/* HERO CARD: NEXT GAME UP (Prominently highlighted for parents & players) */}
+      {nextGame && filter === 'upcoming' && !search.trim() && (
+        <div className="bg-gradient-to-br from-blue-700 via-indigo-700 to-slate-900 rounded-3xl p-5 sm:p-6 text-white shadow-xl relative overflow-hidden animate-in fade-in duration-200">
+          <div className="absolute right-0 top-0 -mt-6 -mr-6 w-36 h-36 bg-white/10 rounded-full blur-2xl pointer-events-none" />
+
+          {/* Top Row: Hero Banner & Relative Countdown */}
+          <div className="flex items-center justify-between mb-3">
+            <div className="inline-flex items-center space-x-1.5 bg-white/20 backdrop-blur-md px-3 py-1 rounded-full text-xs font-black uppercase tracking-wider">
+              <Sparkles className="w-3.5 h-3.5 text-amber-300" />
+              <span>Next Game Up</span>
+            </div>
+            <span className="text-xs font-bold bg-amber-400 text-slate-900 px-3 py-1 rounded-full shadow-sm">
+              {getRelativeDayLabel(nextGame.game_date)}
+            </span>
+          </div>
+
+          {/* Matchup & Date */}
+          <div className="space-y-1.5">
+            <div className="text-xs text-blue-200 font-semibold flex items-center space-x-2">
+              <span>{parseGameDate(nextGame.game_date).full}</span>
+              <span>&bull;</span>
+              <span className="text-white font-bold">{format12h(nextGame.start_time)}</span>
+            </div>
+            <h2 className="text-2xl sm:text-3xl font-black tracking-tight flex items-baseline space-x-2">
+              <span className="text-blue-200 text-lg font-medium">{nextGame.is_home ? 'vs' : '@'}</span>
+              <span>{nextGame.opponent}</span>
+            </h2>
+            <div className="text-xs text-blue-100 flex items-center space-x-2 pt-0.5">
+              <span
+                className="px-2.5 py-0.5 rounded-md font-bold text-[11px] text-white"
+                style={{ backgroundColor: nextGame.team_color || '#2563eb' }}
+              >
+                {nextGame.team_name}
+              </span>
+              {nextGame.child_name && <span>(Player: {nextGame.child_name})</span>}
+              <span className="bg-white/20 px-2 py-0.5 rounded-md font-semibold text-[10px]">
+                {nextGame.is_home ? 'HOME' : 'AWAY'}
+              </span>
+            </div>
+          </div>
+
+          {/* Warmup & Field Callouts */}
+          <div className="mt-4 pt-4 border-t border-white/15 grid grid-cols-1 sm:grid-cols-2 gap-2.5 text-xs">
+            {nextGame.arrival_buffer_mins && (
+              <div className="bg-white/10 backdrop-blur-md rounded-2xl p-3 flex items-center space-x-2.5">
+                <Clock className="w-4 h-4 text-amber-300 flex-shrink-0" />
+                <div>
+                  <span className="text-slate-300 text-[10px] block font-semibold uppercase">Arrival / Warmup</span>
+                  <strong className="text-white font-bold text-xs">
+                    Arrive by {calculateArrivalTime(nextGame.start_time, nextGame.arrival_buffer_mins)} ({nextGame.arrival_buffer_mins}m buffer)
+                  </strong>
+                </div>
+              </div>
+            )}
+
+            <div className="bg-white/10 backdrop-blur-md rounded-2xl p-3 flex items-center justify-between">
+              <div className="flex items-center space-x-2.5 min-w-0">
+                <MapPin className="w-4 h-4 text-rose-300 flex-shrink-0" />
+                <div className="truncate">
+                  <span className="text-slate-300 text-[10px] block font-semibold uppercase">Field / Venue</span>
+                  <span className="text-white font-bold truncate block text-xs">
+                    {nextGame.venue_name || 'Complex'} {nextGame.field_court ? `(${nextGame.field_court})` : ''}
+                  </span>
+                </div>
+              </div>
+
+              <a
+                href={
+                  nextGame.map_url ||
+                  `https://maps.google.com/?q=${encodeURIComponent(`${nextGame.venue_name || ''} ${nextGame.address || ''}`)}`
+                }
+                target="_blank"
+                rel="noopener noreferrer"
+                className="ml-2 px-3 py-1.5 bg-white text-slate-900 rounded-xl text-xs font-black shadow transition hover:bg-slate-100 flex items-center space-x-1 flex-shrink-0 active:scale-95"
+              >
+                <Navigation className="w-3.5 h-3.5 text-blue-600" />
+                <span>Directions</span>
+              </a>
+            </div>
+          </div>
+
+          {/* Uniform Note & Admin Actions */}
+          <div className="mt-3 flex flex-wrap items-center justify-between gap-2 text-xs">
+            {nextGame.uniform_notes ? (
+              <div className="flex items-center space-x-2 bg-black/25 px-3 py-1.5 rounded-xl text-blue-100">
+                <Shirt className="w-4 h-4 text-amber-300 flex-shrink-0" />
+                <span>Uniform: <strong>{nextGame.uniform_notes}</strong></span>
+              </div>
+            ) : <div />}
+
+            {isAdmin && (
+              <div className="flex items-center space-x-2 ml-auto">
+                <button
+                  onClick={() => onOpenScoreModal(nextGame)}
+                  className="px-3 py-1.5 bg-white/20 hover:bg-white/30 text-white rounded-xl text-xs font-bold transition flex items-center space-x-1"
+                >
+                  <Trophy className="w-3.5 h-3.5 text-amber-300" />
+                  <span>Update Status</span>
+                </button>
+                <button
+                  onClick={() => onEditGame(nextGame)}
+                  className="px-3 py-1.5 bg-white/20 hover:bg-white/30 text-white rounded-xl text-xs font-bold transition flex items-center space-x-1"
+                >
+                  <Edit2 className="w-3.5 h-3.5" />
+                  <span>Edit</span>
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* Filter and Search Bar */}
-      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 bg-white p-3 rounded-xl border border-slate-200 shadow-sm">
+      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 bg-white p-3 rounded-2xl border border-slate-200 shadow-xs">
         {/* Filter Tabs */}
-        <div className="flex items-center space-x-1 bg-slate-100 p-1 rounded-lg">
+        <div className="flex items-center space-x-1 bg-slate-100 p-1 rounded-xl">
           <button
             onClick={() => setFilter('upcoming')}
-            className={`px-3 py-1.5 rounded-md text-xs font-bold transition ${
+            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition ${
               filter === 'upcoming'
-                ? 'bg-white text-blue-600 shadow-sm'
+                ? 'bg-white text-blue-600 shadow-xs'
                 : 'text-slate-600 hover:text-slate-900'
             }`}
           >
-            Upcoming Games
+            Upcoming ({upcomingGames.length})
           </button>
           <button
             onClick={() => setFilter('past')}
-            className={`px-3 py-1.5 rounded-md text-xs font-bold transition ${
+            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition ${
               filter === 'past'
-                ? 'bg-white text-blue-600 shadow-sm'
+                ? 'bg-white text-blue-600 shadow-xs'
                 : 'text-slate-600 hover:text-slate-900'
             }`}
           >
-            Past & Completed
+            Past & Scores ({pastGames.length})
           </button>
           <button
             onClick={() => setFilter('all')}
-            className={`px-3 py-1.5 rounded-md text-xs font-bold transition ${
+            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition ${
               filter === 'all'
-                ? 'bg-white text-blue-600 shadow-sm'
+                ? 'bg-white text-blue-600 shadow-xs'
                 : 'text-slate-600 hover:text-slate-900'
             }`}
           >
-            All Games ({games.length})
+            All Games ({allSortedGames.length})
           </button>
         </div>
 
-        {/* Search Input */}
-        <div className="relative flex-1 sm:max-w-xs">
-          <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
-          <input
-            type="text"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search opponent, venue, jersey..."
-            className="w-full pl-9 pr-3 py-1.5 rounded-lg border border-slate-200 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-slate-50"
-          />
+        {/* Sort indicator & Search */}
+        <div className="flex items-center space-x-3 flex-1 sm:max-w-md justify-end">
+          <span className="text-[11px] font-bold text-slate-400 hidden md:inline">
+            {filter === 'past' ? 'Sorted: Newest First' : 'Sorted: Closest First'}
+          </span>
+          <div className="relative flex-1 sm:max-w-xs">
+            <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+            <input
+              type="text"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search opponent, venue, jersey..."
+              className="w-full pl-9 pr-3 py-1.5 rounded-xl border border-slate-200 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-slate-50"
+            />
+          </div>
         </div>
       </div>
 
       {/* Game Cards List */}
       {filteredGames.length === 0 ? (
-        <div className="bg-white rounded-2xl border border-dashed border-slate-300 p-12 text-center">
+        <div className="bg-white rounded-3xl border border-dashed border-slate-300 p-12 text-center">
           <div className="w-12 h-12 bg-blue-50 text-blue-600 rounded-2xl flex items-center justify-center mx-auto mb-3">
             <CalendarIcon className="w-6 h-6" />
           </div>
@@ -217,17 +380,26 @@ export default function GameList({
             {search
               ? 'No games matched your search criteria.'
               : filter === 'upcoming'
-              ? 'No upcoming games scheduled. Upload a schedule or add a game to get started!'
+              ? 'No upcoming games scheduled. All caught up!'
               : 'No past games recorded yet.'}
           </p>
           <div className="mt-4">
-            <button
-              onClick={onOpenAddGame}
-              className="inline-flex items-center space-x-1.5 px-4 py-2 bg-blue-600 text-white rounded-xl text-sm font-semibold hover:bg-blue-700 transition"
-            >
-              <Plus className="w-4 h-4" />
-              <span>Add Game Manually</span>
-            </button>
+            {isAdmin ? (
+              <button
+                onClick={onOpenAddGame}
+                className="inline-flex items-center space-x-1.5 px-4 py-2 bg-blue-600 text-white rounded-xl text-sm font-semibold hover:bg-blue-700 transition"
+              >
+                <Plus className="w-4 h-4" />
+                <span>Add Game Manually</span>
+              </button>
+            ) : (
+              <button
+                onClick={onOpenLogin}
+                className="inline-flex items-center space-x-1.5 px-4 py-2 bg-slate-900 text-white rounded-xl text-xs font-semibold hover:bg-slate-800 transition"
+              >
+                <span>Coach Login to Add Games</span>
+              </button>
+            )}
           </div>
         </div>
       ) : (
@@ -242,11 +414,11 @@ export default function GameList({
             return (
               <div
                 key={game.id}
-                className={`bg-white rounded-2xl border transition-all duration-200 shadow-sm hover:shadow-md overflow-hidden ${
+                className={`bg-white rounded-3xl border transition-all duration-200 shadow-xs hover:shadow-md overflow-hidden ${
                   isCancelled
                     ? 'border-red-200 bg-red-50/20 opacity-85'
                     : isCompleted
-                    ? 'border-slate-200 bg-slate-50/30'
+                    ? 'border-slate-200 bg-slate-50/40'
                     : 'border-slate-200 hover:border-blue-300'
                 }`}
               >
@@ -277,7 +449,7 @@ export default function GameList({
                     {/* Game Details */}
                     <div className="space-y-1.5 flex-1 min-w-0">
                       {/* Top Badges */}
-                      <div className="flex flex-wrap items-center gap-2">
+                      <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
                         {/* Team Badge */}
                         <span
                           className="text-[11px] font-bold px-2.5 py-0.5 rounded-full text-white"
@@ -296,6 +468,13 @@ export default function GameList({
                         >
                           {game.is_home ? 'HOME' : 'AWAY'}
                         </span>
+
+                        {/* Relative day pill for upcoming games */}
+                        {!isCompleted && !isCancelled && (
+                          <span className="text-[10px] font-bold bg-slate-100 text-slate-700 px-2 py-0.5 rounded-full">
+                            {getRelativeDayLabel(game.game_date)}
+                          </span>
+                        )}
 
                         {/* Status Badge */}
                         {isCancelled && (
@@ -320,7 +499,7 @@ export default function GameList({
                                 : 'bg-slate-200 text-slate-800'
                             }`}
                           >
-                            <Trophy className="w-3 h-3" />
+                            <Trophy className="w-3 h-3 text-amber-600" />
                             <span>
                               {game.outcome ? `${game.outcome.toUpperCase()} ` : 'FINAL '}
                               {game.home_score !== null && game.away_score !== null
@@ -346,7 +525,7 @@ export default function GameList({
                           <span>Game Time: {format12h(game.start_time)} ({game.duration_mins || 60}m)</span>
                         </div>
 
-                        {arrivalTime && !isCancelled && (
+                        {arrivalTime && !isCancelled && !isCompleted && (
                           <div className="flex items-center space-x-1 bg-amber-50 text-amber-800 px-2 py-0.5 rounded-md font-semibold border border-amber-200/60">
                             <span>⏰ Arrive by <strong>{arrivalTime}</strong> ({game.arrival_buffer_mins}m warmup)</span>
                           </div>
@@ -403,24 +582,30 @@ export default function GameList({
                   </div>
 
                   {/* Right Side: Quick Action Buttons */}
-                  <div className="flex sm:flex-col items-center justify-end gap-2 pt-3 md:pt-0 border-t md:border-t-0 border-slate-100 flex-shrink-0">
-                    {isAdmin && (
-                      <button
-                        onClick={() => onOpenScoreModal(game)}
-                        className="w-full sm:w-auto px-3 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold transition flex items-center justify-center space-x-1"
-                        title="Update score or report rainout/reschedule"
+                  <div className="flex flex-wrap sm:flex-col items-stretch sm:items-end justify-end gap-2 pt-3 md:pt-0 border-t md:border-t-0 border-slate-100 flex-shrink-0">
+                    {/* Directions Button for everyone */}
+                    {(game.venue_name || game.map_url) && (
+                      <a
+                        href={
+                          game.map_url ||
+                          `https://maps.google.com/?q=${encodeURIComponent(`${game.venue_name || ''} ${game.address || ''}`)}`
+                        }
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs font-bold transition flex items-center justify-center space-x-1.5 active:scale-95"
                       >
-                        <Trophy className="w-3.5 h-3.5 text-amber-600" />
-                        <span>{isCompleted ? 'Edit Score' : 'Score / Status'}</span>
-                      </button>
+                        <Navigation className="w-3.5 h-3.5 text-blue-600" />
+                        <span>Map & Directions</span>
+                      </a>
                     )}
 
+                    {/* Google Calendar Link */}
                     {game.google_calendar_url && (
                       <a
                         href={game.google_calendar_url}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="w-full sm:w-auto px-3 py-1.5 rounded-lg bg-blue-50 hover:bg-blue-100 text-blue-700 text-xs font-semibold transition flex items-center justify-center space-x-1"
+                        className="px-3 py-1.5 rounded-xl bg-blue-50 hover:bg-blue-100 text-blue-700 text-xs font-semibold transition flex items-center justify-center space-x-1"
                         title="Add this single game to your Google Calendar"
                       >
                         <CalendarIcon className="w-3.5 h-3.5 text-blue-600" />
@@ -428,8 +613,17 @@ export default function GameList({
                       </a>
                     )}
 
+                    {/* Admin Actions */}
                     {isAdmin && (
-                      <div className="flex items-center space-x-1">
+                      <div className="flex items-center space-x-1.5 pt-1">
+                        <button
+                          onClick={() => onOpenScoreModal(game)}
+                          className="px-2.5 py-1.5 rounded-lg bg-amber-50 hover:bg-amber-100 text-amber-800 text-xs font-bold transition flex items-center space-x-1 border border-amber-200/60"
+                          title="Update score or report rainout/reschedule"
+                        >
+                          <Trophy className="w-3.5 h-3.5 text-amber-600" />
+                          <span>{isCompleted ? 'Edit Score' : 'Score / Status'}</span>
+                        </button>
                         <button
                           onClick={() => onEditGame(game)}
                           className="p-1.5 rounded-lg text-slate-500 hover:text-slate-800 hover:bg-slate-100 transition"

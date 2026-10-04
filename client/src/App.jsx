@@ -7,24 +7,19 @@ import GameModal from './components/GameModal';
 import ScoreStatusModal from './components/ScoreStatusModal';
 import TeamModal from './components/TeamModal';
 import SettingsModal from './components/SettingsModal';
-import PublicSchedule from './components/PublicSchedule';
 import LoginModal from './components/LoginModal';
 
 export default function App() {
-  // Check if viewing public schedule page
-  const isPublicSchedule =
-    window.location.pathname.startsWith('/schedule') ||
-    new URLSearchParams(window.location.search).get('view') === 'public';
-
-  if (isPublicSchedule) {
-    const pathParts = window.location.pathname.split('/');
-    const teamIdFromUrl = pathParts.length > 2 ? pathParts[2] : null;
-    return <PublicSchedule teamId={teamIdFromUrl} />;
-  }
+  // Support optional direct team links like /schedule/team-1
+  const pathParts = window.location.pathname.split('/');
+  const initialTeamId =
+    (window.location.pathname.startsWith('/schedule') && pathParts.length > 2 && pathParts[2])
+      ? pathParts[2]
+      : null;
 
   const [teams, setTeams] = useState([]);
   const [games, setGames] = useState([]);
-  const [selectedTeamId, setSelectedTeamId] = useState(null); // null = All Teams / Family view
+  const [selectedTeamId, setSelectedTeamId] = useState(initialTeamId); // null = All Teams / Family view
   const [isLoading, setIsLoading] = useState(true);
 
   // Auth state
