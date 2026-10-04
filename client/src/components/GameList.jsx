@@ -179,7 +179,7 @@ export default function GameList({
               className="px-3 py-1.5 rounded-lg bg-zinc-900 hover:bg-zinc-800 text-white text-xs font-medium transition shadow-xs flex items-center gap-1.5"
             >
               <Share2 className="w-3.5 h-3.5 text-zinc-300" />
-              <span>Sync Feed</span>
+              <span>Sync to Calendar</span>
             </button>
           </div>
         </div>

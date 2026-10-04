@@ -67,7 +67,7 @@ export default function Header({
                   title="Share and subscribe to calendar feed"
                 >
                   <Share2 className="w-3.5 h-3.5 text-zinc-500" />
-                  <span className="hidden sm:inline">Sync</span>
+                  <span className="hidden sm:inline">Sync to Calendar</span>
                 </button>
 
                 <button
