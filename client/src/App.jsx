@@ -270,14 +270,14 @@ export default function App() {
   const selectedTeam = teams.find((t) => t.id === selectedTeamId) || null;
 
   return (
-    <div className="min-h-screen bg-slate-50 flex flex-col selection:bg-blue-600 selection:text-white">
+    <div className="min-h-screen bg-[#fafafa] flex flex-col selection:bg-zinc-900 selection:text-white">
       {/* Toast Notification */}
       {toast && (
         <div className="fixed bottom-5 right-5 z-50 animate-in fade-in slide-in-from-bottom-5 duration-200">
           <div
-            className={`px-4 py-3 rounded-2xl shadow-xl text-white text-xs font-bold flex items-center space-x-2 border ${
+            className={`px-4 py-2.5 rounded-xl shadow-lg text-white text-xs font-medium flex items-center space-x-2 border ${
               toast.type === 'info'
-                ? 'bg-slate-900 border-slate-700'
+                ? 'bg-zinc-900 border-zinc-800'
                 : 'bg-emerald-600 border-emerald-500'
             }`}
           >
@@ -312,7 +312,7 @@ export default function App() {
       />
 
       {/* Main Container */}
-      <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6">
+      <main className="flex-1 max-w-4xl w-full mx-auto px-4 sm:px-6 py-6 sm:py-8">
         <GameList
           games={games}
           selectedTeam={selectedTeam}
@@ -340,7 +340,7 @@ export default function App() {
       </main>
 
       {/* Footer */}
-      <footer className="border-t border-slate-200 py-6 text-center text-xs text-slate-500">
+      <footer className="border-t border-zinc-200/60 py-8 text-center text-xs text-zinc-400">
         <p>GameSync Hub &bull; Automatic RFC 5545 iCalendar Feeds for Apple Calendar, Google Calendar & Outlook</p>
       </footer>
 
