@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, Settings, Key, Check, Sparkles, Database, Calendar } from 'lucide-react';
+import { X, Settings, Key, Check, Sparkles, Database, Calendar, Lock } from 'lucide-react';
 
 export default function SettingsModal({ isOpen, onClose }) {
   if (!isOpen) return null;
@@ -9,6 +9,11 @@ export default function SettingsModal({ isOpen, onClose }) {
   const [maskedKey, setMaskedKey] = useState('');
   const [statusMsg, setStatusMsg] = useState('');
   const [isSaving, setIsSaving] = useState(false);
+
+  // Change password state
+  const [newPassword, setNewPassword] = useState('');
+  const [passwordMsg, setPasswordMsg] = useState('');
+  const [isSavingPassword, setIsSavingPassword] = useState(false);
 
   useEffect(() => {
     fetchSettings();
@@ -33,9 +38,13 @@ export default function SettingsModal({ isOpen, onClose }) {
     setStatusMsg('');
 
     try {
+      const token = localStorage.getItem('gamesync_admin_token') || '';
       const res = await fetch('/api/settings', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'x-admin-token': token
+        },
         body: JSON.stringify({ gemini_api_key: apiKey })
       });
 
@@ -44,12 +53,43 @@ export default function SettingsModal({ isOpen, onClose }) {
         setApiKey('');
         fetchSettings();
       } else {
-        setStatusMsg('Failed to save API key.');
+        const err = await res.json();
+        setStatusMsg(err.error || 'Failed to save API key.');
       }
     } catch (err) {
       setStatusMsg(`Error: ${err.message}`);
     } finally {
       setIsSaving(false);
+    }
+  }
+
+  async function handleChangePassword(e) {
+    e.preventDefault();
+    setIsSavingPassword(true);
+    setPasswordMsg('');
+
+    try {
+      const token = localStorage.getItem('gamesync_admin_token') || '';
+      const res = await fetch('/api/auth/change-password', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-admin-token': token
+        },
+        body: JSON.stringify({ newPassword })
+      });
+
+      const data = await res.json();
+      if (res.ok) {
+        setPasswordMsg('Admin passcode updated successfully!');
+        setNewPassword('');
+      } else {
+        setPasswordMsg(data.error || 'Failed to update passcode.');
+      }
+    } catch (err) {
+      setPasswordMsg(`Error: ${err.message}`);
+    } finally {
+      setIsSavingPassword(false);
     }
   }
 
@@ -66,7 +106,41 @@ export default function SettingsModal({ isOpen, onClose }) {
           </button>
         </div>
 
-        <div className="p-6 space-y-5">
+        <div className="p-6 space-y-5 max-h-[80vh] overflow-y-auto">
+          {/* Change Admin Passcode */}
+          <div className="border border-slate-200 rounded-2xl p-4 bg-slate-50/50">
+            <div className="flex items-center space-x-2 mb-1.5">
+              <Lock className="w-4 h-4 text-blue-600" />
+              <h4 className="text-xs font-bold text-slate-900">Admin / Coach Passcode</h4>
+            </div>
+            <p className="text-xs text-slate-600 leading-relaxed mb-3">
+              This passcode protects adding games, scraping schedules, and editing teams. Spectators view read-only.
+            </p>
+
+            <form onSubmit={handleChangePassword} className="space-y-2">
+              <div className="flex space-x-2">
+                <input
+                  type="text"
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                  placeholder="Set new passcode..."
+                  className="flex-1 px-3 py-1.5 text-xs border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 bg-white"
+                  required
+                />
+                <button
+                  type="submit"
+                  disabled={isSavingPassword || !newPassword.trim()}
+                  className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold transition disabled:opacity-50"
+                >
+                  Update
+                </button>
+              </div>
+              {passwordMsg && (
+                <p className="text-[11px] font-semibold text-emerald-600">{passwordMsg}</p>
+              )}
+            </form>
+          </div>
+
           {/* AI Parser Setup */}
           <div className="border border-slate-200 rounded-2xl p-4 bg-slate-50/50">
             <div className="flex items-center space-x-2 mb-2">
@@ -74,7 +148,7 @@ export default function SettingsModal({ isOpen, onClose }) {
               <h4 className="text-xs font-bold text-slate-900">Google Gemini AI Vision Key</h4>
             </div>
             <p className="text-xs text-slate-600 leading-relaxed mb-3">
-              Power schedule extraction from paper photos, fridge flyers, PDF schedules, and complex league websites.
+              Power multi-game schedule extraction from paper photos, fridge flyers, PDF schedules, and complex league websites.
             </p>
 
             {hasKey ? (
@@ -97,7 +171,7 @@ export default function SettingsModal({ isOpen, onClose }) {
                   type="password"
                   value={apiKey}
                   onChange={(e) => setApiKey(e.target.value)}
-                  placeholder={hasKey ? 'Enter new key to replace' : 'AIzaSy...'}
+                  placeholder={hasKey ? 'Enter new key to replace' : 'AIzaSy... / AQ...'}
                   className="flex-1 px-3 py-1.5 text-xs border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 bg-white"
                 />
                 <button

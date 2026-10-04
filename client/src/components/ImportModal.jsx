@@ -63,8 +63,12 @@ export default function ImportModal({ isOpen, onClose, teams, onGamesImported })
       formData.append('defaultTeamId', targetTeamId);
       formData.append('defaultYear', '2026');
 
+      const token = localStorage.getItem('gamesync_admin_token') || '';
       const res = await fetch('/api/parse-schedule', {
         method: 'POST',
+        headers: {
+          'x-admin-token': token
+        },
         body: formData
       });
 
@@ -146,9 +150,13 @@ export default function ImportModal({ isOpen, onClose, teams, onGamesImported })
     setError(null);
 
     try {
+      const token = localStorage.getItem('gamesync_admin_token') || '';
       const res = await fetch('/api/games/batch', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'x-admin-token': token
+        },
         body: JSON.stringify({
           team_id: targetTeamId,
           games: parsedGames

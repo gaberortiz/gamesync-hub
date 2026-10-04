@@ -24,7 +24,9 @@ export default function GameList({
   onOpenScoreModal,
   onOpenAddGame,
   onOpenShare,
-  onEditTeam
+  onEditTeam,
+  isAdmin,
+  onOpenLogin
 }) {
   const [filter, setFilter] = useState('upcoming'); // 'upcoming', 'all', 'past'
   const [search, setSearch] = useState('');
@@ -117,14 +119,16 @@ export default function GameList({
           </div>
 
           <div className="flex items-center space-x-2">
-            <button
-              onClick={() => onEditTeam && onEditTeam(selectedTeam)}
-              className="px-3.5 py-2 rounded-xl bg-white/20 hover:bg-white/30 text-white text-xs font-bold backdrop-blur-sm transition flex items-center space-x-1.5 active:scale-95 border border-white/20"
-              title="Edit team settings, colors, arrival buffers, and details"
-            >
-              <Settings className="w-4 h-4" />
-              <span>Edit Team</span>
-            </button>
+            {isAdmin && (
+              <button
+                onClick={() => onEditTeam && onEditTeam(selectedTeam)}
+                className="px-3.5 py-2 rounded-xl bg-white/20 hover:bg-white/30 text-white text-xs font-bold backdrop-blur-sm transition flex items-center space-x-1.5 active:scale-95 border border-white/20"
+                title="Edit team settings, colors, arrival buffers, and details"
+              >
+                <Settings className="w-4 h-4" />
+                <span>Edit Team</span>
+              </button>
+            )}
             <button
               onClick={onOpenShare}
               className="px-4 py-2 rounded-xl bg-white text-slate-900 text-sm font-bold shadow-md hover:bg-slate-100 transition active:scale-95"
@@ -400,14 +404,16 @@ export default function GameList({
 
                   {/* Right Side: Quick Action Buttons */}
                   <div className="flex sm:flex-col items-center justify-end gap-2 pt-3 md:pt-0 border-t md:border-t-0 border-slate-100 flex-shrink-0">
-                    <button
-                      onClick={() => onOpenScoreModal(game)}
-                      className="w-full sm:w-auto px-3 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold transition flex items-center justify-center space-x-1"
-                      title="Update score or report rainout/reschedule"
-                    >
-                      <Trophy className="w-3.5 h-3.5 text-amber-600" />
-                      <span>{isCompleted ? 'Edit Score' : 'Score / Status'}</span>
-                    </button>
+                    {isAdmin && (
+                      <button
+                        onClick={() => onOpenScoreModal(game)}
+                        className="w-full sm:w-auto px-3 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold transition flex items-center justify-center space-x-1"
+                        title="Update score or report rainout/reschedule"
+                      >
+                        <Trophy className="w-3.5 h-3.5 text-amber-600" />
+                        <span>{isCompleted ? 'Edit Score' : 'Score / Status'}</span>
+                      </button>
+                    )}
 
                     {game.google_calendar_url && (
                       <a
@@ -422,22 +428,24 @@ export default function GameList({
                       </a>
                     )}
 
-                    <div className="flex items-center space-x-1">
-                      <button
-                        onClick={() => onEditGame(game)}
-                        className="p-1.5 rounded-lg text-slate-500 hover:text-slate-800 hover:bg-slate-100 transition"
-                        title="Edit Game"
-                      >
-                        <Edit2 className="w-3.5 h-3.5" />
-                      </button>
-                      <button
-                        onClick={() => onDeleteGame(game.id)}
-                        className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition"
-                        title="Delete Game"
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
-                    </div>
+                    {isAdmin && (
+                      <div className="flex items-center space-x-1">
+                        <button
+                          onClick={() => onEditGame(game)}
+                          className="p-1.5 rounded-lg text-slate-500 hover:text-slate-800 hover:bg-slate-100 transition"
+                          title="Edit Game"
+                        >
+                          <Edit2 className="w-3.5 h-3.5" />
+                        </button>
+                        <button
+                          onClick={() => onDeleteGame(game.id)}
+                          className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition"
+                          title="Delete Game"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>

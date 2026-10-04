@@ -57,6 +57,57 @@ app.use(cors());
 app.use(express.json({ limit: '25mb' }));
 app.use(express.urlencoded({ extended: true, limit: '25mb' }));
 
+// -------------------------------------------------------------
+// ADMIN AUTHENTICATION
+// -------------------------------------------------------------
+const activeTokens = new Set();
+
+function getAdminPassword() {
+  return db.getSetting('admin_password') || process.env.ADMIN_PASSWORD || 'coach2026';
+}
+
+function verifyToken(req) {
+  const token = req.headers['x-admin-token'] || req.headers.authorization?.replace(/^Bearer\s+/, '');
+  return Boolean(token && activeTokens.has(token));
+}
+
+function requireAdmin(req, res, next) {
+  if (verifyToken(req)) {
+    return next();
+  }
+  return res.status(401).json({ error: 'Unauthorized: Admin passcode required to edit schedule.' });
+}
+
+app.post('/api/auth/login', (req, res) => {
+  const { password } = req.body;
+  const currentPassword = getAdminPassword();
+  if (password === currentPassword) {
+    const token = crypto.randomBytes(24).toString('hex');
+    activeTokens.add(token);
+    return res.json({ success: true, token });
+  }
+  return res.status(401).json({ error: 'Invalid admin passcode.' });
+});
+
+app.get('/api/auth/verify', (req, res) => {
+  res.json({ isAdmin: verifyToken(req) });
+});
+
+app.post('/api/auth/logout', (req, res) => {
+  const token = req.headers['x-admin-token'] || req.headers.authorization?.replace(/^Bearer\s+/, '');
+  if (token) activeTokens.delete(token);
+  res.json({ success: true });
+});
+
+app.post('/api/auth/change-password', requireAdmin, (req, res) => {
+  const { newPassword } = req.body;
+  if (!newPassword || newPassword.trim().length < 4) {
+    return res.status(400).json({ error: 'Passcode must be at least 4 characters long.' });
+  }
+  db.setSetting('admin_password', newPassword.trim());
+  res.json({ success: true });
+});
+
 app.get('/api/system-info', (req, res) => {
   const lanIp = getLanIp();
   res.json({
@@ -94,7 +145,7 @@ app.get('/api/teams', (req, res) => {
   }
 });
 
-app.post('/api/teams', (req, res) => {
+app.post('/api/teams', requireAdmin, (req, res) => {
   try {
     const { name, sport, child_name, season, color, default_arrival_buffer_mins } = req.body;
     if (!name || !sport) {
@@ -116,7 +167,7 @@ app.post('/api/teams', (req, res) => {
   }
 });
 
-app.put('/api/teams/:id', (req, res) => {
+app.put('/api/teams/:id', requireAdmin, (req, res) => {
   try {
     const updated = db.updateTeam(req.params.id, req.body);
     res.json(updated);
@@ -125,7 +176,7 @@ app.put('/api/teams/:id', (req, res) => {
   }
 });
 
-app.delete('/api/teams/:id', (req, res) => {
+app.delete('/api/teams/:id', requireAdmin, (req, res) => {
   try {
     db.deleteTeam(req.params.id);
     res.json({ success: true });
@@ -152,7 +203,7 @@ app.get('/api/games', (req, res) => {
   }
 });
 
-app.post('/api/games', (req, res) => {
+app.post('/api/games', requireAdmin, (req, res) => {
   try {
     const g = req.body;
     if (!g.team_id || !g.opponent || !g.game_date || !g.start_time) {
@@ -167,7 +218,7 @@ app.post('/api/games', (req, res) => {
   }
 });
 
-app.post('/api/games/batch', (req, res) => {
+app.post('/api/games/batch', requireAdmin, (req, res) => {
   try {
     const { team_id, games } = req.body;
     if (!team_id) {
@@ -193,7 +244,7 @@ app.post('/api/games/batch', (req, res) => {
   }
 });
 
-app.put('/api/games/:id', (req, res) => {
+app.put('/api/games/:id', requireAdmin, (req, res) => {
   try {
     const updated = db.updateGame(req.params.id, req.body);
     res.json(updated);
@@ -202,7 +253,7 @@ app.put('/api/games/:id', (req, res) => {
   }
 });
 
-app.delete('/api/games/:id', (req, res) => {
+app.delete('/api/games/:id', requireAdmin, (req, res) => {
   try {
     db.deleteGame(req.params.id);
     res.json({ success: true });
@@ -214,7 +265,7 @@ app.delete('/api/games/:id', (req, res) => {
 // -------------------------------------------------------------
 // SCHEDULE PARSER & SCRAPER
 // -------------------------------------------------------------
-app.post('/api/parse-schedule', upload.single('file'), async (req, res) => {
+app.post('/api/parse-schedule', requireAdmin, upload.single('file'), async (req, res) => {
   try {
     const file = req.file;
     const { text, url, defaultTeamId, defaultYear } = req.body;
@@ -381,7 +432,7 @@ app.get('/api/settings', (req, res) => {
   }
 });
 
-app.post('/api/settings', (req, res) => {
+app.post('/api/settings', requireAdmin, (req, res) => {
   try {
     const { gemini_api_key } = req.body;
     if (gemini_api_key !== undefined) {

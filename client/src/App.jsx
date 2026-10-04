@@ -8,6 +8,7 @@ import ScoreStatusModal from './components/ScoreStatusModal';
 import TeamModal from './components/TeamModal';
 import SettingsModal from './components/SettingsModal';
 import PublicSchedule from './components/PublicSchedule';
+import LoginModal from './components/LoginModal';
 
 export default function App() {
   // Check if viewing public schedule page
@@ -26,6 +27,10 @@ export default function App() {
   const [selectedTeamId, setSelectedTeamId] = useState(null); // null = All Teams / Family view
   const [isLoading, setIsLoading] = useState(true);
 
+  // Auth state
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [isLoginOpen, setIsLoginOpen] = useState(false);
+
   // Modals state
   const [isImportOpen, setIsImportOpen] = useState(false);
   const [isShareOpen, setIsShareOpen] = useState(false);
@@ -43,6 +48,51 @@ export default function App() {
   function showToast(message, type = 'success') {
     setToast({ message, type });
     setTimeout(() => setToast(null), 3500);
+  }
+
+  // Check admin session on mount
+  useEffect(() => {
+    checkAdminStatus();
+  }, []);
+
+  async function checkAdminStatus() {
+    const token = localStorage.getItem('gamesync_admin_token');
+    if (!token) {
+      setIsAdmin(false);
+      return;
+    }
+    try {
+      const res = await fetch('/api/auth/verify', {
+        headers: { 'x-admin-token': token }
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setIsAdmin(Boolean(data.isAdmin));
+        if (!data.isAdmin) {
+          localStorage.removeItem('gamesync_admin_token');
+        }
+      } else {
+        setIsAdmin(false);
+        localStorage.removeItem('gamesync_admin_token');
+      }
+    } catch {
+      setIsAdmin(false);
+    }
+  }
+
+  async function handleLogout() {
+    const token = localStorage.getItem('gamesync_admin_token');
+    try {
+      await fetch('/api/auth/logout', {
+        method: 'POST',
+        headers: { 'x-admin-token': token || '' }
+      });
+    } catch (err) {
+      console.error('Logout error:', err);
+    }
+    localStorage.removeItem('gamesync_admin_token');
+    setIsAdmin(false);
+    showToast('Logged out of Editor Mode', 'info');
   }
 
   // Fetch initial teams
@@ -83,6 +133,14 @@ export default function App() {
     }
   }
 
+  function getAuthHeaders() {
+    const token = localStorage.getItem('gamesync_admin_token') || '';
+    return {
+      'Content-Type': 'application/json',
+      'x-admin-token': token
+    };
+  }
+
   // Add / Edit Game
   async function handleSaveGame(gameData) {
     try {
@@ -92,10 +150,15 @@ export default function App() {
 
       const res = await fetch(url, {
         method,
-        headers: { 'Content-Type': 'application/json' },
+        headers: getAuthHeaders(),
         body: JSON.stringify(gameData)
       });
 
+      if (res.status === 401) {
+        setIsAdmin(false);
+        setIsLoginOpen(true);
+        throw new Error('Admin passcode required to modify schedule.');
+      }
       if (!res.ok) throw new Error('Failed to save game');
 
       showToast(isEditing ? 'Game updated successfully!' : 'New game added to calendar!');
@@ -112,7 +175,16 @@ export default function App() {
   async function handleDeleteGame(gameId) {
     if (!confirm('Are you sure you want to remove this game from the schedule?')) return;
     try {
-      const res = await fetch(`/api/games/${gameId}`, { method: 'DELETE' });
+      const token = localStorage.getItem('gamesync_admin_token') || '';
+      const res = await fetch(`/api/games/${gameId}`, {
+        method: 'DELETE',
+        headers: { 'x-admin-token': token }
+      });
+      if (res.status === 401) {
+        setIsAdmin(false);
+        setIsLoginOpen(true);
+        throw new Error('Admin passcode required to delete games.');
+      }
       if (!res.ok) throw new Error('Failed to delete game');
       showToast('Game removed from schedule', 'info');
       fetchGames();
@@ -127,9 +199,14 @@ export default function App() {
     try {
       const res = await fetch(`/api/games/${updatedGame.id}`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
+        headers: getAuthHeaders(),
         body: JSON.stringify(updatedGame)
       });
+      if (res.status === 401) {
+        setIsAdmin(false);
+        setIsLoginOpen(true);
+        throw new Error('Admin passcode required to update scores.');
+      }
       if (!res.ok) throw new Error('Failed to update game status');
 
       showToast('Game score and status updated!');
@@ -150,9 +227,14 @@ export default function App() {
 
       const res = await fetch(url, {
         method,
-        headers: { 'Content-Type': 'application/json' },
+        headers: getAuthHeaders(),
         body: JSON.stringify(teamData)
       });
+      if (res.status === 401) {
+        setIsAdmin(false);
+        setIsLoginOpen(true);
+        throw new Error('Admin passcode required to manage teams.');
+      }
       if (!res.ok) throw new Error('Failed to save team');
 
       showToast(isEditing ? 'Team updated!' : 'Team created!');
@@ -168,7 +250,16 @@ export default function App() {
   async function handleDeleteTeam(teamId) {
     if (!confirm('Delete this team and all its scheduled games?')) return;
     try {
-      const res = await fetch(`/api/teams/${teamId}`, { method: 'DELETE' });
+      const token = localStorage.getItem('gamesync_admin_token') || '';
+      const res = await fetch(`/api/teams/${teamId}`, {
+        method: 'DELETE',
+        headers: { 'x-admin-token': token }
+      });
+      if (res.status === 401) {
+        setIsAdmin(false);
+        setIsLoginOpen(true);
+        throw new Error('Admin passcode required to delete teams.');
+      }
       if (!res.ok) throw new Error('Failed to delete team');
       showToast('Team deleted');
       setIsTeamModalOpen(false);
@@ -220,6 +311,9 @@ export default function App() {
           setIsTeamModalOpen(true);
         }}
         onOpenSettings={() => setIsSettingsOpen(true)}
+        isAdmin={isAdmin}
+        onOpenLogin={() => setIsLoginOpen(true)}
+        onLogout={handleLogout}
       />
 
       {/* Main Container */}
@@ -245,6 +339,8 @@ export default function App() {
             setTeamToEdit(team);
             setIsTeamModalOpen(true);
           }}
+          isAdmin={isAdmin}
+          onOpenLogin={() => setIsLoginOpen(true)}
         />
       </main>
 
@@ -308,6 +404,15 @@ export default function App() {
       <SettingsModal
         isOpen={isSettingsOpen}
         onClose={() => setIsSettingsOpen(false)}
+      />
+
+      <LoginModal
+        isOpen={isLoginOpen}
+        onClose={() => setIsLoginOpen(false)}
+        onLoginSuccess={() => {
+          setIsAdmin(true);
+          showToast('Editor Mode unlocked! 🎉');
+        }}
       />
     </div>
   );

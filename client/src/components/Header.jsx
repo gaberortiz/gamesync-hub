@@ -1,5 +1,5 @@
 import React from 'react';
-import { Calendar, Plus, Share2, UploadCloud, Users, Settings as SettingsIcon, Edit2 } from 'lucide-react';
+import { Calendar, Plus, Share2, UploadCloud, Users, Settings as SettingsIcon, Edit2, Lock, LogOut, ShieldCheck } from 'lucide-react';
 
 export default function Header({
   teams,
@@ -10,10 +10,13 @@ export default function Header({
   onOpenShare,
   onOpenTeamModal,
   onEditTeam,
-  onOpenSettings
+  onOpenSettings,
+  isAdmin,
+  onOpenLogin,
+  onLogout
 }) {
   return (
-    <header className="bg-white border-b border-slate-200 sticky top-0 z-30 shadow-sm">
+    <header className="bg-white border-b border-slate-200 sticky top-0 z-30 shadow-xs">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16">
           {/* Logo & Title */}
@@ -25,6 +28,16 @@ export default function Header({
               <div className="flex items-center space-x-2">
                 <span className="font-extrabold text-xl tracking-tight text-slate-900">GameSync</span>
                 <span className="text-xs font-bold uppercase tracking-wider bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full">Hub</span>
+                {isAdmin ? (
+                  <span className="text-[10px] font-black uppercase tracking-wider bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-full flex items-center space-x-1">
+                    <ShieldCheck className="w-3 h-3 text-emerald-600" />
+                    <span>Editor Mode</span>
+                  </span>
+                ) : (
+                  <span className="text-[10px] font-bold text-slate-400 bg-slate-100 px-2 py-0.5 rounded-full hidden sm:inline-block">
+                    Spectator View
+                  </span>
+                )}
               </div>
               <p className="text-xs text-slate-500 hidden sm:block">Youth Sports Schedule & Live Family Calendar</p>
             </div>
@@ -32,40 +45,71 @@ export default function Header({
 
           {/* Action Buttons */}
           <div className="flex items-center space-x-2 sm:space-x-3">
-            <button
-              onClick={onOpenImport}
-              className="inline-flex items-center space-x-1.5 px-3.5 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-semibold shadow-sm transition active:scale-95"
-              title="Import schedule from Photo, PDF, CSV, or League URL"
-            >
-              <UploadCloud className="w-4 h-4" />
-              <span className="hidden md:inline">Scrape & Import</span>
-              <span className="md:hidden">Import</span>
-            </button>
+            {isAdmin ? (
+              <>
+                <button
+                  onClick={onOpenImport}
+                  className="inline-flex items-center space-x-1.5 px-3 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold shadow-sm transition active:scale-95"
+                  title="Import schedule from Photo, PDF, CSV, or League URL"
+                >
+                  <UploadCloud className="w-4 h-4" />
+                  <span className="hidden md:inline">Scrape & Import</span>
+                  <span className="md:hidden">Import</span>
+                </button>
 
-            <button
-              onClick={onOpenAddGame}
-              className="inline-flex items-center space-x-1.5 px-3.5 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold shadow-sm transition active:scale-95"
-            >
-              <Plus className="w-4 h-4" />
-              <span className="hidden sm:inline">Add Game</span>
-            </button>
+                <button
+                  onClick={onOpenAddGame}
+                  className="inline-flex items-center space-x-1.5 px-3 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold shadow-sm transition active:scale-95"
+                >
+                  <Plus className="w-4 h-4" />
+                  <span className="hidden sm:inline">Add Game</span>
+                </button>
 
-            <button
-              onClick={onOpenShare}
-              className="inline-flex items-center space-x-1.5 px-3.5 py-2 rounded-lg bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 text-sm font-semibold transition active:scale-95"
-              title="Share live calendar feed with friends and family"
-            >
-              <Share2 className="w-4 h-4 text-indigo-600" />
-              <span className="hidden sm:inline">Sync & Share</span>
-            </button>
+                <button
+                  onClick={onOpenShare}
+                  className="inline-flex items-center space-x-1.5 px-3 py-2 rounded-xl bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 text-xs font-bold transition active:scale-95"
+                  title="Share live calendar feed with friends and family"
+                >
+                  <Share2 className="w-4 h-4 text-indigo-600" />
+                  <span className="hidden sm:inline">Sync & Share</span>
+                </button>
 
-            <button
-              onClick={onOpenSettings}
-              className="p-2 rounded-lg text-slate-600 hover:text-slate-900 hover:bg-slate-100 transition"
-              title="Settings & AI Keys"
-            >
-              <SettingsIcon className="w-5 h-5" />
-            </button>
+                <button
+                  onClick={onOpenSettings}
+                  className="p-2 rounded-xl text-slate-600 hover:text-slate-900 hover:bg-slate-100 transition"
+                  title="Settings & Passcode"
+                >
+                  <SettingsIcon className="w-4 h-4" />
+                </button>
+
+                <button
+                  onClick={onLogout}
+                  className="p-2 rounded-xl text-rose-500 hover:text-rose-700 hover:bg-rose-50 transition"
+                  title="Log out of editor mode"
+                >
+                  <LogOut className="w-4 h-4" />
+                </button>
+              </>
+            ) : (
+              <>
+                <button
+                  onClick={onOpenShare}
+                  className="inline-flex items-center space-x-1.5 px-3 py-2 rounded-xl bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 text-xs font-bold transition active:scale-95"
+                  title="Share or subscribe to calendar"
+                >
+                  <Share2 className="w-4 h-4 text-indigo-600" />
+                  <span>Sync to Calendar</span>
+                </button>
+
+                <button
+                  onClick={onOpenLogin}
+                  className="inline-flex items-center space-x-1.5 px-3.5 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold shadow-sm transition active:scale-95"
+                >
+                  <Lock className="w-3.5 h-3.5 text-blue-400" />
+                  <span>Coach / Editor Login</span>
+                </button>
+              </>
+            )}
           </div>
         </div>
 
@@ -79,7 +123,7 @@ export default function Header({
                 : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
             }`}
           >
-            <span>🌟 All Teams (Family Feed)</span>
+            <span>🌟 All Teams</span>
           </button>
 
           {teams.map((team) => {
@@ -118,7 +162,7 @@ export default function Header({
                   )}
                 </button>
 
-                {isSelected && (
+                {isSelected && isAdmin && (
                   <button
                     onClick={(e) => {
                       e.stopPropagation();
@@ -134,13 +178,15 @@ export default function Header({
             );
           })}
 
-          <button
-            onClick={onOpenTeamModal}
-            className="px-2.5 py-1.5 rounded-full text-xs font-medium text-slate-600 hover:text-slate-900 hover:bg-slate-100 border border-dashed border-slate-300 flex items-center space-x-1 whitespace-nowrap transition"
-          >
-            <Plus className="w-3 h-3" />
-            <span>Add Team</span>
-          </button>
+          {isAdmin ? (
+            <button
+              onClick={onOpenTeamModal}
+              className="px-2.5 py-1.5 rounded-full text-xs font-medium text-slate-600 hover:text-slate-900 hover:bg-slate-100 border border-dashed border-slate-300 flex items-center space-x-1 whitespace-nowrap transition"
+            >
+              <Plus className="w-3 h-3" />
+              <span>Add Team</span>
+            </button>
+          ) : null}
         </div>
       </div>
     </header>
