@@ -12,6 +12,8 @@ import {
   Sparkles,
   Loader2
 } from 'lucide-react';
+import { parseScheduleClientSide } from '../parser';
+import { apiBatchGames } from '../api';
 
 export default function ImportModal({ isOpen, onClose, teams, onGamesImported }) {
   if (!isOpen) return null;
@@ -49,44 +51,20 @@ export default function ImportModal({ isOpen, onClose, teams, onGamesImported })
     setError(null);
 
     try {
-      const formData = new FormData();
-      if (inputMode === 'file' && file) {
-        formData.append('file', file);
-      } else if (inputMode === 'url' && url) {
-        formData.append('url', url);
-      } else if (inputMode === 'text' && rawText) {
-        formData.append('text', rawText);
-      } else {
-        throw new Error('Please provide a file, URL, or pasted text to extract.');
+      if (inputMode === 'file' && !file) {
+        throw new Error('Please select a file to extract.');
+      } else if (inputMode === 'url' && !url) {
+        throw new Error('Please enter a schedule URL.');
+      } else if (inputMode === 'text' && !rawText) {
+        throw new Error('Please paste schedule text to extract.');
       }
 
-      formData.append('defaultTeamId', targetTeamId);
-      formData.append('defaultYear', '2026');
-
-      const token = localStorage.getItem('gamesync_admin_token') || '';
-      const res = await fetch('/api/parse-schedule', {
-        method: 'POST',
-        headers: {
-          'x-admin-token': token
-        },
-        body: formData
+      const rawGames = await parseScheduleClientSide({
+        file: inputMode === 'file' ? file : null,
+        text: inputMode === 'text' ? rawText : '',
+        url: inputMode === 'url' ? url : '',
+        defaultYear: 2026
       });
-
-      const data = await res.json();
-      const rawGames = (data.games && data.games.length > 0)
-        ? data.games
-        : [{
-            game_date: '2026-10-10',
-            start_time: '09:00',
-            duration_mins: 60,
-            arrival_buffer_mins: 30,
-            opponent: 'Opponent Team',
-            is_home: true,
-            venue_name: 'Community Park',
-            field_court: 'Field 1',
-            uniform_notes: 'Home Jersey',
-            notes: ''
-          }];
 
       // Populate review table
       setParsedGames(
@@ -150,24 +128,7 @@ export default function ImportModal({ isOpen, onClose, teams, onGamesImported })
     setError(null);
 
     try {
-      const token = localStorage.getItem('gamesync_admin_token') || '';
-      const res = await fetch('/api/games/batch', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-admin-token': token
-        },
-        body: JSON.stringify({
-          team_id: targetTeamId,
-          games: parsedGames
-        })
-      });
-
-      const data = await res.json();
-      if (!res.ok) {
-        throw new Error(data.error || 'Failed to save games to calendar.');
-      }
-
+      await apiBatchGames(targetTeamId, parsedGames);
       // Success!
       onGamesImported();
       handleClose();

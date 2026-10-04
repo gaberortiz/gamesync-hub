@@ -15,6 +15,7 @@ import {
   ExternalLink,
   Trash2
 } from 'lucide-react';
+import { getCalendarFeedUrl } from '../api';
 
 export default function ShareModal({ isOpen, onClose, teams, selectedTeamId }) {
   if (!isOpen) return null;
@@ -37,13 +38,9 @@ export default function ShareModal({ isOpen, onClose, teams, selectedTeamId }) {
   const origin = window.location.origin;
   const isFamily = activeCalTarget === 'family' || !activeCalTarget;
 
-  const feedPath = isFamily
-    ? '/api/calendar/family.ics'
-    : `/api/calendar/${activeCalTarget}.ics`;
-
-  const httpIcsUrl = `${origin}${feedPath}`;
+  const httpIcsUrl = getCalendarFeedUrl(activeCalTarget);
   const webcalUrl = httpIcsUrl.replace(/^https?:\/\//, 'webcal://');
-  const webScheduleUrl = isFamily ? `${origin}/schedule` : `${origin}/schedule/${activeCalTarget}`;
+  const webScheduleUrl = window.location.href.split('?')[0];
   const [webCopied, setWebCopied] = useState(false);
 
   // Google Calendar web subscription URL

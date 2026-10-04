@@ -8,6 +8,14 @@ import ScoreStatusModal from './components/ScoreStatusModal';
 import TeamModal from './components/TeamModal';
 import SettingsModal from './components/SettingsModal';
 import LoginModal from './components/LoginModal';
+import {
+  apiFetchTeams,
+  apiFetchGames,
+  apiSaveGame,
+  apiDeleteGame,
+  apiSaveTeam,
+  apiDeleteTeam
+} from './api';
 
 export default function App() {
   // Support optional direct team links like /schedule/team-1
@@ -102,11 +110,8 @@ export default function App() {
 
   async function fetchTeams() {
     try {
-      const res = await fetch('/api/teams');
-      if (res.ok) {
-        const data = await res.json();
-        setTeams(data);
-      }
+      const data = await apiFetchTeams();
+      setTeams(data);
     } catch (err) {
       console.error('Error fetching teams:', err);
     }
@@ -115,12 +120,8 @@ export default function App() {
   async function fetchGames() {
     setIsLoading(true);
     try {
-      const url = selectedTeamId ? `/api/games?teamId=${selectedTeamId}` : '/api/games';
-      const res = await fetch(url);
-      if (res.ok) {
-        const data = await res.json();
-        setGames(data);
-      }
+      const data = await apiFetchGames(selectedTeamId);
+      setGames(data);
     } catch (err) {
       console.error('Error fetching games:', err);
     } finally {
@@ -128,33 +129,11 @@ export default function App() {
     }
   }
 
-  function getAuthHeaders() {
-    const token = localStorage.getItem('gamesync_admin_token') || '';
-    return {
-      'Content-Type': 'application/json',
-      'x-admin-token': token
-    };
-  }
-
   // Add / Edit Game
   async function handleSaveGame(gameData) {
     try {
       const isEditing = Boolean(gameData.id);
-      const url = isEditing ? `/api/games/${gameData.id}` : '/api/games';
-      const method = isEditing ? 'PUT' : 'POST';
-
-      const res = await fetch(url, {
-        method,
-        headers: getAuthHeaders(),
-        body: JSON.stringify(gameData)
-      });
-
-      if (res.status === 401) {
-        setIsAdmin(false);
-        setIsLoginOpen(true);
-        throw new Error('Admin passcode required to modify schedule.');
-      }
-      if (!res.ok) throw new Error('Failed to save game');
+      await apiSaveGame(gameData);
 
       showToast(isEditing ? 'Game updated successfully!' : 'New game added to calendar!');
       setIsGameModalOpen(false);
@@ -162,7 +141,11 @@ export default function App() {
       fetchGames();
       fetchTeams();
     } catch (err) {
-      alert(`Error: ${err.message}`);
+      if (err.status === 401) {
+        setIsAdmin(false);
+        setIsLoginOpen(true);
+      }
+      alert(`Error: ${err.message || 'Failed to save game'}`);
     }
   }
 
@@ -170,46 +153,33 @@ export default function App() {
   async function handleDeleteGame(gameId) {
     if (!confirm('Are you sure you want to remove this game from the schedule?')) return;
     try {
-      const token = localStorage.getItem('gamesync_admin_token') || '';
-      const res = await fetch(`/api/games/${gameId}`, {
-        method: 'DELETE',
-        headers: { 'x-admin-token': token }
-      });
-      if (res.status === 401) {
-        setIsAdmin(false);
-        setIsLoginOpen(true);
-        throw new Error('Admin passcode required to delete games.');
-      }
-      if (!res.ok) throw new Error('Failed to delete game');
+      await apiDeleteGame(gameId);
       showToast('Game removed from schedule', 'info');
       fetchGames();
       fetchTeams();
     } catch (err) {
-      alert(`Error: ${err.message}`);
+      if (err.status === 401) {
+        setIsAdmin(false);
+        setIsLoginOpen(true);
+      }
+      alert(`Error: ${err.message || 'Failed to delete game'}`);
     }
   }
 
   // Update Game Score & Status
   async function handleSaveScore(updatedGame) {
     try {
-      const res = await fetch(`/api/games/${updatedGame.id}`, {
-        method: 'PUT',
-        headers: getAuthHeaders(),
-        body: JSON.stringify(updatedGame)
-      });
-      if (res.status === 401) {
-        setIsAdmin(false);
-        setIsLoginOpen(true);
-        throw new Error('Admin passcode required to update scores.');
-      }
-      if (!res.ok) throw new Error('Failed to update game status');
-
+      await apiSaveGame(updatedGame);
       showToast('Game score and status updated!');
       setIsScoreModalOpen(false);
       setGameForScore(null);
       fetchGames();
     } catch (err) {
-      alert(`Error: ${err.message}`);
+      if (err.status === 401) {
+        setIsAdmin(false);
+        setIsLoginOpen(true);
+      }
+      alert(`Error: ${err.message || 'Failed to update score'}`);
     }
   }
 
@@ -217,27 +187,17 @@ export default function App() {
   async function handleSaveTeam(teamData) {
     try {
       const isEditing = Boolean(teamData.id);
-      const url = isEditing ? `/api/teams/${teamData.id}` : '/api/teams';
-      const method = isEditing ? 'PUT' : 'POST';
-
-      const res = await fetch(url, {
-        method,
-        headers: getAuthHeaders(),
-        body: JSON.stringify(teamData)
-      });
-      if (res.status === 401) {
-        setIsAdmin(false);
-        setIsLoginOpen(true);
-        throw new Error('Admin passcode required to manage teams.');
-      }
-      if (!res.ok) throw new Error('Failed to save team');
-
+      await apiSaveTeam(teamData);
       showToast(isEditing ? 'Team updated!' : 'Team created!');
       setIsTeamModalOpen(false);
       setTeamToEdit(null);
       fetchTeams();
     } catch (err) {
-      alert(`Error: ${err.message}`);
+      if (err.status === 401) {
+        setIsAdmin(false);
+        setIsLoginOpen(true);
+      }
+      alert(`Error: ${err.message || 'Failed to save team'}`);
     }
   }
 
@@ -245,17 +205,7 @@ export default function App() {
   async function handleDeleteTeam(teamId) {
     if (!confirm('Delete this team and all its scheduled games?')) return;
     try {
-      const token = localStorage.getItem('gamesync_admin_token') || '';
-      const res = await fetch(`/api/teams/${teamId}`, {
-        method: 'DELETE',
-        headers: { 'x-admin-token': token }
-      });
-      if (res.status === 401) {
-        setIsAdmin(false);
-        setIsLoginOpen(true);
-        throw new Error('Admin passcode required to delete teams.');
-      }
-      if (!res.ok) throw new Error('Failed to delete team');
+      await apiDeleteTeam(teamId);
       showToast('Team deleted');
       setIsTeamModalOpen(false);
       setTeamToEdit(null);
@@ -263,7 +213,11 @@ export default function App() {
       fetchTeams();
       fetchGames();
     } catch (err) {
-      alert(`Error: ${err.message}`);
+      if (err.status === 401) {
+        setIsAdmin(false);
+        setIsLoginOpen(true);
+      }
+      alert(`Error: ${err.message || 'Failed to delete team'}`);
     }
   }
 

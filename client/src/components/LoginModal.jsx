@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { X, Lock, Key, Eye, EyeOff, AlertCircle, CheckCircle } from 'lucide-react';
+import { apiLogin } from '../api';
 
 export default function LoginModal({ isOpen, onClose, onLoginSuccess }) {
   if (!isOpen) return null;
@@ -21,19 +22,8 @@ export default function LoginModal({ isOpen, onClose, onLoginSuccess }) {
 
     setIsLoading(true);
     try {
-      const res = await fetch('/api/auth/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ password })
-      });
-
-      const data = await res.json();
-      if (!res.ok) {
-        throw new Error(data.error || 'Invalid passcode.');
-      }
-
-      // Save token in localStorage
-      localStorage.setItem('gamesync_admin_token', data.token);
+      const data = await apiLogin(password);
+      localStorage.setItem('gamesync_admin_token', data.token || 'admin');
       setPassword('');
       onLoginSuccess();
       onClose();

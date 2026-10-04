@@ -70,9 +70,35 @@ Open your browser to:
 - **Family Master Feed**: `http://localhost:4000/api/calendar/family.ics` (or `webcal://localhost:4000/api/calendar/family.ics`)
 - **Team-Specific Feed**: `http://localhost:4000/api/calendar/<team-id>.ics`
 
+## ☁️ 100% Free Cloud Deployment (GitHub Pages + Google Drive)
+
+You can host GameSync Hub completely free with **zero server fees** and **zero database fees**:
+- **Frontend Hosting**: Free on **GitHub Pages** (automated CI/CD via GitHub Actions).
+- **Database & Live Calendar Subscriptions**: Free in **Google Drive (Google Sheets)** via **Google Apps Script**.
+- **AI Extraction**: Client-side in the browser using the free Google Gemini 3.5 Flash API tier.
+
+### 3-Minute Setup
+1. **Enable GitHub Pages**:
+   - In your GitHub repository, go to **Settings** > **Pages**.
+   - Under **Build and deployment > Source**, select **GitHub Actions**.
+   - Every push to `main` deploys automatically to `https://<username>.github.io/<repo-name>/`.
+2. **Deploy Google Apps Script Backend**:
+   - Open [Google Drive](https://drive.google.com/) and create a new **Google Sheet** (e.g., `GameSync Database`).
+   - Click **Extensions** > **Apps Script**.
+   - Paste the code from [`google-apps-script/Code.gs`](./google-apps-script/Code.gs) into the editor.
+   - Click **Deploy** > **New deployment**.
+   - Select **Web app** (`Execute as: Me`, `Who has access: Anyone`).
+   - Copy the deployed Web App URL (`https://script.google.com/macros/s/.../exec`).
+3. **Connect to Your App**:
+   - Open your hosted GameSync Hub site on GitHub Pages.
+   - Click **Settings** (⚙️) in the top right.
+   - Paste your **Google Apps Script Web App URL** and click **Save & Test Connection**.
+   - Done! Your teams, games, and live calendar subscription feeds are now powered by your Google Sheet.
+
 ---
 
 ## 🛠️ Tech Stack
-- **Backend**: Node.js, Express, `node:sqlite` (zero-dependency native SQLite), RFC 5545 iCalendar engine, Multer.
-- **Frontend**: React 19, Vite, Tailwind CSS, Lucide Icons, QR Code generation.
-- **AI Extraction**: Google Gemini API (`gemini-2.5-flash`) + Rule-Based Heuristic Parser.
+- **Frontend**: React 19, Vite, Tailwind CSS, Lucide Icons, QRCode.
+- **Serverless Backend (Cloud Mode)**: Google Apps Script + Google Sheets in Google Drive (RFC 5545 iCalendar engine, team & game CRUD).
+- **Local Backend (Self-Hosted Mode)**: Node.js, Express, `node:sqlite` (zero-dependency native SQLite), Multer.
+- **AI Extraction**: Browser-direct Google Gemini API (`gemini-2.5-flash` / `gemini-3.5-flash`) + Rule-Based Heuristic Parser.
